@@ -1,0 +1,24 @@
+# Ignore dependencies
+node_modules/
+
+# Ignore build outputs
+build/
+dist/
+out/
+
+# Ignore Sui Move build artifacts
+.move/
+*.mv
+*.bcs
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore editor settings
+.vscode/
+.idea/
+
+# Ignore env files
+.env
+.env.local

@@ -1,0 +1,117 @@
+module 0x01a8a03a1cf2d40c228ec3c844f71c04e568c3fb5cdc351a3e549ecd900fdff3::escrow_marketplace {
+    struct Listing<T0: store + key> has store, key {
+        id: 0x2::object::UID,
+        seller: address,
+        price: u64,
+        protect_secs: u64,
+        item: T0,
+    }
+    
+    struct Escrow<T0: store + key> has store, key {
+        id: 0x2::object::UID,
+        seller: address,
+        buyer: address,
+        price: u64,
+        protect_secs: u64,
+        start_ms: u64,
+        disputed: bool,
+        item: T0,
+        funds: 0x2::balance::Balance<0x2::sui::SUI>,
+    }
+    
+    public entry fun buy<T0: store + key>(arg0: 0x2::coin::Coin<0x2::sui::SUI>, arg1: Listing<T0>, arg2: &0x2::clock::Clock, arg3: &mut 0x2::tx_context::TxContext) {
+        let v0 = 0x2::tx_context::sender(arg3);
+        assert!(0x2::coin::value<0x2::sui::SUI>(&arg0) >= arg1.price, 2);
+        if (0x2::coin::value<0x2::sui::SUI>(&arg0) > 0) {
+            0x2::transfer::public_transfer<0x2::coin::Coin<0x2::sui::SUI>>(arg0, v0);
+        } else {
+            0x2::coin::destroy_zero<0x2::sui::SUI>(arg0);
+        };
+        let Listing {
+            id           : v1,
+            seller       : v2,
+            price        : _,
+            protect_secs : _,
+            item         : v5,
+        } = arg1;
+        0x2::object::delete(v1);
+        let v6 = Escrow<T0>{
+            id           : 0x2::object::new(arg3), 
+            seller       : v2, 
+            buyer        : v0, 
+            price        : arg1.price, 
+            protect_secs : arg1.protect_secs, 
+            start_ms     : 0x2::clock::timestamp_ms(arg2), 
+            disputed     : false, 
+            item         : v5, 
+            funds        : 0x2::coin::into_balance<0x2::sui::SUI>(0x2::coin::split<0x2::sui::SUI>(&mut arg0, arg1.price, arg3)),
+        };
+        0x2::transfer::public_transfer<Escrow<T0>>(v6, v0);
+    }
+    
+    public entry fun buyer_cancel<T0: store + key>(arg0: Escrow<T0>, arg1: &0x2::clock::Clock, arg2: &mut 0x2::tx_context::TxContext) {
+        assert!(within_window<T0>(&arg0, arg1), 5);
+        assert!(!arg0.disputed, 6);
+        let Escrow {
+            id           : v0,
+            seller       : v1,
+            buyer        : v2,
+            price        : _,
+            protect_secs : _,
+            start_ms     : _,
+            disputed     : _,
+            item         : v7,
+            funds        : v8,
+        } = arg0;
+        0x2::transfer::public_transfer<0x2::coin::Coin<0x2::sui::SUI>>(0x2::coin::from_balance<0x2::sui::SUI>(v8, arg2), v2);
+        0x2::object::delete(v0);
+        0x2::transfer::public_transfer<T0>(v7, v1);
+    }
+    
+    public entry fun list<T0: store + key>(arg0: T0, arg1: u64, arg2: u64, arg3: &mut 0x2::tx_context::TxContext) {
+        assert!(arg1 > 0, 0);
+        assert!(arg2 > 0, 1);
+        let v0 = 0x2::tx_context::sender(arg3);
+        let v1 = Listing<T0>{
+            id           : 0x2::object::new(arg3), 
+            seller       : v0, 
+            price        : arg1, 
+            protect_secs : arg2, 
+            item         : arg0,
+        };
+        0x2::transfer::public_transfer<Listing<T0>>(v1, v0);
+    }
+    
+    public entry fun open_dispute<T0: store + key>(arg0: &mut Escrow<T0>, arg1: &0x2::clock::Clock, arg2: &mut 0x2::tx_context::TxContext) {
+        assert!(0x2::tx_context::sender(arg2) == arg0.buyer, 3);
+        assert!(within_window<T0>(arg0, arg1), 4);
+        arg0.disputed = true;
+    }
+    
+    public entry fun seller_settle<T0: store + key>(arg0: Escrow<T0>, arg1: &0x2::clock::Clock, arg2: &mut 0x2::tx_context::TxContext) {
+        assert!(!within_window<T0>(&arg0, arg1), 7);
+        assert!(!arg0.disputed, 8);
+        let Escrow {
+            id           : v0,
+            seller       : v1,
+            buyer        : v2,
+            price        : _,
+            protect_secs : _,
+            start_ms     : _,
+            disputed     : _,
+            item         : v7,
+            funds        : v8,
+        } = arg0;
+        0x2::transfer::public_transfer<0x2::coin::Coin<0x2::sui::SUI>>(0x2::coin::from_balance<0x2::sui::SUI>(v8, arg2), v1);
+        0x2::object::delete(v0);
+        0x2::transfer::public_transfer<T0>(v7, v2);
+    }
+    
+    fun within_window<T0: store + key>(arg0: &Escrow<T0>, arg1: &0x2::clock::Clock) : bool {
+        0x2::clock::timestamp_ms(arg1) < arg0.start_ms + arg0.protect_secs * 1000
+    }
+    
+    // decompiled from Move bytecode v6
+}
+
+
